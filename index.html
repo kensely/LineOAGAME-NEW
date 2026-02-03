@@ -22,6 +22,7 @@
         align-items: center; justify-content: center; color: #f59e0b;
       }
       #root { position: relative; z-index: 10; min-height: 100vh; width: 100%; }
+      .font-calligraphy { font-family: 'Ma Shan Zheng', cursive; }
     </style>
 </head>
   <body>
@@ -75,28 +76,50 @@
     </script>
 
     <script type="text/babel" data-presets="react">
-      import React from 'react';
-      import ReactDOM from 'react-dom/client';
+      const { useState, useEffect } = React;
 
-      // 因為 GitHub Pages 讀不到 App.tsx，我們假設您的 App 組件已經在其他地方定義
-      // 或者您可以直接在這裡定義簡單的 App 組件進行測試
+      // 簡化版的 App，確保能在單一 HTML 環境執行
       function App() {
+        const [isRevealed, setIsRevealed] = useState(false);
+
+        const handleComplete = () => {
+          setIsRevealed(true);
+          window.saveResult("午馬開運獎"); // 觸發寫入 Google Sheet
+          alert("恭喜中獎！獎項已記錄。");
+        };
+
         return (
-          <div className="flex flex-col items-center justify-center min-height-screen text-white">
-            <h1 className="text-4xl font-calligraphy mt-20">馬到成功 刮刮樂</h1>
-            {/* 這裡放入您的刮刮卡 HTML 結構 */}
-            <div className="mt-10 p-10 bg-yellow-600 rounded-lg">
-               刮開此處...
+          <div className="flex flex-col items-center justify-center p-6 text-white min-h-screen">
+            <h1 className="text-5xl font-calligraphy text-yellow-500 mb-8 drop-shadow-lg">馬到成功</h1>
+            <div className="bg-red-900/50 p-8 rounded-3xl border-2 border-yellow-600 shadow-2xl backdrop-blur-sm w-full max-w-sm">
+              <p className="text-center text-yellow-200 mb-6 font-bold tracking-widest">午馬開運刮刮樂</p>
+              
+              {/* 刮刮卡區域 */}
+              <div 
+                className="relative h-48 bg-gray-300 rounded-xl flex items-center justify-center overflow-hidden cursor-pointer"
+                onClick={handleComplete}
+              >
+                {!isRevealed ? (
+                  <div className="absolute inset-0 bg-gradient-to-br from-gray-400 to-gray-600 flex items-center justify-center text-gray-200 font-bold">
+                    點擊模擬刮開
+                  </div>
+                ) : (
+                  <div className="text-3xl text-red-600 font-black animate-bounce">
+                    🧧 50元折價券
+                  </div>
+                )}
+              </div>
+
+              <p className="text-xs text-yellow-600/60 mt-6 text-center italic">
+                ※ 每位會員限領取乙次，刮開後自動存檔
+              </p>
             </div>
           </div>
         );
       }
 
-      const rootElement = document.getElementById('root');
-      if (rootElement) {
-        const root = ReactDOM.createRoot(rootElement);
-        root.render(<App />);
-      }
+      const root = ReactDOM.createRoot(document.getElementById('root'));
+      root.render(<App />);
     </script>
   </body>
 </html>
