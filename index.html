@@ -13,15 +13,45 @@
     <link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Noto+Sans+TC:wght@400;700;900&family=Zhi+Mang+Xing&display=swap" rel="stylesheet">
     
     <style>
-      html, body { overscroll-behavior: none; height: 100%; width: 100%; background: #2a0505; margin: 0; padding: 0; }
+      html, body {
+        overscroll-behavior: none;
+        height: 100%; width: 100%;
+        background: #2a0505; margin: 0; padding: 0;
+      }
+      body {
+        font-family: 'Noto Sans TC', sans-serif;
+        background: radial-gradient(circle at center, #7f1d1d 0%, #2a0505 100%);
+      }
+      .font-calligraphy { font-family: 'Ma Shan Zheng', cursive; }
+      
+      /* 驗證遮罩層 */
       #loading-overlay {
         position: fixed; top: 0; left: 0; width: 100%; height: 100%;
         background: radial-gradient(circle at center, #7f1d1d 0%, #2a0505 100%);
         z-index: 9999; display: flex; flex-direction: column;
         align-items: center; justify-content: center; color: #f59e0b;
       }
-      #bg-particles { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; pointer-events: none; }
-      #root { position: relative; z-index: 10; min-height: 100vh; }
+      
+      /* 背景粒子：確保在最底層，且不影響點擊 */
+      #bg-particles {
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        z-index: -1; pointer-events: none;
+      }
+
+      /* React 容器層級 */
+      #root { position: relative; z-index: 10; }
+
+      .particle {
+        position: absolute; pointer-events: none;
+        background: linear-gradient(135deg, #f59e0b, transparent);
+        border-radius: 50%; opacity: 0.3;
+        animation: float-up linear infinite;
+      }
+      @keyframes float-up {
+        0% { transform: translateY(110vh) translateX(0) scale(1); opacity: 0; }
+        20% { opacity: 0.4; }
+        100% { transform: translateY(-10vh) translateX(50px) scale(0.5); opacity: 0; }
+      }
     </style>
 
     <script type="importmap">
@@ -40,21 +70,22 @@
   <body>
     <div id="loading-overlay">
         <div class="text-6xl mb-4 animate-bounce">🧧</div>
-        <div id="loading-text" class="text-xl font-bold font-calligraphy text-amber-400">驗證馬年開運資格...</div>
+        <div id="loading-text" class="text-xl font-bold font-calligraphy text-amber-400">正在領取開運資格...</div>
     </div>
 
     <div id="root"></div>
     <div id="bg-particles"></div>
 
     <script>
-      // 填入您提供的資料
+      // === 自動填入您的配置 ===
       const LIFF_ID = '1569792743-bsbm1zLE'; 
       const GAS_URL = 'https://script.google.com/macros/s/AKfycbwsmCxklPsVoozRdPggUmh81IXatVZfWEG9dAD7iDkNwQHWJKoJe-idX4BLmF1_GLzZGg/exec'; 
 
-      async function initLIFF() {
-        console.log("LIFF 開始初始化...");
+      async function initApp() {
+        console.log("LIFF 啟動中...");
         const loadingText = document.getElementById('loading-text');
         try {
+          // 1. LIFF 初始化
           await liff.init({ liffId: LIFF_ID });
           if (!liff.isLoggedIn()) {
             liff.login();
@@ -64,40 +95,55 @@
           window.userUID = profile.userId;
           console.log("UID 取得成功: " + window.userUID);
 
-          // 向 GAS 檢查是否玩過
+          // 2. 向 GAS 檢查重複參加
           const response = await fetch(GAS_URL, {
             method: 'POST',
-            mode: 'no-cors', // 增加 GAS 相容性
             body: JSON.stringify({ action: 'check', userId: window.userUID })
           });
-          
-          // 注意：因為 no-cors 模式無法讀取 body，這裡我們先假設可以玩，
-          // 真正的阻擋會發生在儲存結果時或再次進入時。
-          // 若要完美阻擋，請確保 GAS 端的 CORS 設定正確。
-          document.getElementById('loading-overlay').style.display = 'none';
-          
+          const result = await response.json();
+
+          if (result.canPlay) {
+            // 資格通過，移除遮罩讓 React 渲染
+            document.getElementById('loading-overlay').style.display = 'none';
+          } else {
+            loadingText.innerHTML = "❌ 您已參加過本活動<br><span style='font-size:16px; opacity:0.8'>每位會員限參與一次</span>";
+          }
         } catch (err) {
-          console.error("初始化失敗:", err);
-          // 就算失敗也讓它顯示，避免一直卡在載入畫面
-          document.getElementById('loading-overlay').style.display = 'none';
+          console.error("初始化錯誤:", err);
+          // 容錯處理：如果 GAS 或 LIFF 暫時沒反應，2秒後讓它強制顯示遊戲，避免白屏
+          setTimeout(() => {
+            document.getElementById('loading-overlay').style.display = 'none';
+          }, 2000);
         }
       }
 
-      // 儲存結果到 Sheet 的函式
-      window.saveResult = async function(prizeName) {
+      // 提供給 index.tsx 呼叫的 API
+      window.saveResult = function(prizeName) {
         if (!window.userUID) return;
-        console.log("正在儲存獎項: " + prizeName);
         fetch(GAS_URL, {
           method: 'POST',
           body: JSON.stringify({
             action: 'save',
             userId: window.userUID,
-            prize: prizeName || "馬到成功開運獎"
+            prize: prizeName || "午馬開運獎"
           })
-        }).catch(e => console.error("儲存失敗", e));
+        });
       }
 
-      window.onload = initLIFF;
+      window.onload = initApp;
+
+      // 生成粒子
+      const container = document.getElementById('bg-particles');
+      for (let i = 0; i < 25; i++) {
+        const p = document.createElement('div');
+        p.className = 'particle';
+        const size = Math.random() * 5 + 2 + 'px';
+        p.style.width = size; p.style.height = size;
+        p.style.left = Math.random() * 100 + 'vw';
+        p.style.animationDuration = Math.random() * 10 + 5 + 's';
+        p.style.animationDelay = Math.random() * 5 + 's';
+        container.appendChild(p);
+      }
     </script>
 
     <script type="module" src="index.tsx"></script>
