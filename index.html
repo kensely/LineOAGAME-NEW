@@ -13,59 +13,17 @@
     <link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Noto+Sans+TC:wght@400;700;900&family=Zhi+Mang+Xing&display=swap" rel="stylesheet">
     
     <style>
-      /* 方案 A：直接將 CSS 整合在此，避免 index.css 404 錯誤 */
-      html, body {
-        overscroll-behavior: none;
-        height: 100%; width: 100%;
-        background: #2a0505; margin: 0; padding: 0;
-        overflow-x: hidden;
-      }
-      body {
-        font-family: 'Noto Sans TC', sans-serif;
-        background: radial-gradient(circle at center, #7f1d1d 0%, #2a0505 100%);
-      }
-      .font-calligraphy { font-family: 'Ma Shan Zheng', cursive; }
-      .font-signature { font-family: 'Zhi Mang Xing', cursive; }
-
-      /* 驗證遮罩層：確保在最頂層 */
+      html, body { overscroll-behavior: none; height: 100%; width: 100%; background: #2a0505; margin: 0; padding: 0; }
+      body { font-family: 'Noto Sans TC', sans-serif; background: radial-gradient(circle at center, #7f1d1d 0%, #2a0505 100%); }
       #loading-overlay {
         position: fixed; top: 0; left: 0; width: 100%; height: 100%;
         background: radial-gradient(circle at center, #7f1d1d 0%, #2a0505 100%);
         z-index: 9999; display: flex; flex-direction: column;
         align-items: center; justify-content: center; color: #f59e0b;
-        text-align: center; padding: 20px;
       }
-      
-      /* 背景粒子：確保在底層且不擋點擊 */
-      #bg-particles {
-        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-        z-index: -1; pointer-events: none;
-      }
-
-      /* React 渲染容器 */
-      #root { 
-        position: relative; 
-        z-index: 10; 
-        min-height: 100vh;
-      }
-
-      .particle {
-        position: absolute; pointer-events: none;
-        background: linear-gradient(135deg, #f59e0b, transparent);
-        border-radius: 50%; opacity: 0.3;
-        animation: float-up linear infinite;
-      }
-      @keyframes float-up {
-        0% { transform: translateY(110vh) translateX(0) scale(1); opacity: 0; }
-        20% { opacity: 0.4; }
-        100% { transform: translateY(-10vh) translateX(50px) scale(0.5); opacity: 0; }
-      }
-
-      /* 補償原本 index.css 可能有的 Canvas 樣式 */
-      canvas {
-        touch-action: none;
-        cursor: crosshair;
-      }
+      #bg-particles { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; pointer-events: none; }
+      #root { position: relative; z-index: 10; min-height: 100vh; width: 100%; }
+      canvas { touch-action: none; cursor: crosshair; }
     </style>
 
     <script type="importmap">
@@ -78,26 +36,23 @@
       }
     }
     </script>
-    </head>
+</head>
   <body>
     <div id="loading-overlay">
         <div class="text-6xl mb-4 animate-bounce">🧧</div>
-        <div id="loading-text" class="text-xl font-bold font-calligraphy text-amber-400">正在確認開運資格...</div>
+        <div id="loading-text" class="text-xl font-bold font-calligraphy text-amber-400">正在領取開運資格...</div>
     </div>
 
     <div id="root"></div>
     <div id="bg-particles"></div>
 
     <script>
-      // === 您的配置資訊 ===
       const LIFF_ID = '1569792743-bsbm1zLE'; 
       const GAS_URL = 'https://script.google.com/macros/s/AKfycbwsmCxklPsVoozRdPggUmh81IXatVZfWEG9dAD7iDkNwQHWJKoJe-idX4BLmF1_GLzZGg/exec'; 
 
       async function initApp() {
-        console.log("LIFF 開始初始化...");
-        const loadingText = document.getElementById('loading-text');
+        console.log("LIFF 啟動...");
         try {
-          // 1. LIFF 初始化
           await liff.init({ liffId: LIFF_ID });
           if (!liff.isLoggedIn()) {
             liff.login();
@@ -105,9 +60,9 @@
           }
           const profile = await liff.getProfile();
           window.userUID = profile.userId;
-          console.log("UID 取得成功: " + window.userUID);
+          console.log("UID: " + window.userUID);
 
-          // 2. 向 GAS 檢查是否已玩過
+          // 向 GAS 檢查
           const response = await fetch(GAS_URL, {
             method: 'POST',
             body: JSON.stringify({ action: 'check', userId: window.userUID })
@@ -115,47 +70,27 @@
           const result = await response.json();
 
           if (result.canPlay) {
-            // 允許遊玩，隱藏遮罩
             document.getElementById('loading-overlay').style.display = 'none';
+            // 關鍵：驗證成功後，手動觸發一個 Event 告訴 index.tsx 可以跑了
+            window.dispatchEvent(new Event('app-ready'));
           } else {
-            loadingText.innerHTML = "❌ 您已參加過本活動<br><span style='font-size:16px; opacity:0.8'>每位會員限參加一次</span>";
+            document.getElementById('loading-text').innerHTML = "❌ 您已參加過本活動<br><span style='font-size:16px; opacity:0.8'>每位會員限參與一次</span>";
           }
         } catch (err) {
-          console.error("初始化失敗:", err);
-          // 容錯處理：如果連線太慢，3秒後強行解除遮罩讓遊戲跑起來
-          setTimeout(() => {
-            document.getElementById('loading-overlay').style.display = 'none';
-          }, 3000);
+          console.error("Init Error:", err);
+          document.getElementById('loading-overlay').style.display = 'none';
         }
       }
 
-      // 提供給 index.tsx 呼叫的 API
-      window.saveResult = function(prizeName) {
+      window.saveResult = function(prize) {
         if (!window.userUID) return;
         fetch(GAS_URL, {
           method: 'POST',
-          body: JSON.stringify({
-            action: 'save',
-            userId: window.userUID,
-            prize: prizeName || "午馬開運獎"
-          })
+          body: JSON.stringify({ action: 'save', userId: window.userUID, prize: prize })
         });
       }
 
       window.onload = initApp;
-
-      // 生成粒子背景
-      const container = document.getElementById('bg-particles');
-      for (let i = 0; i < 25; i++) {
-        const p = document.createElement('div');
-        p.className = 'particle';
-        const size = Math.random() * 5 + 2 + 'px';
-        p.style.width = size; p.style.height = size;
-        p.style.left = Math.random() * 100 + 'vw';
-        p.style.animationDuration = Math.random() * 10 + 5 + 's';
-        p.style.animationDelay = Math.random() * 5 + 's';
-        container.appendChild(p);
-      }
     </script>
 
     <script type="module" src="index.tsx"></script>
