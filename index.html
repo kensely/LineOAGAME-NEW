@@ -13,33 +13,41 @@
     <link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Noto+Sans+TC:wght@400;700;900&family=Zhi+Mang+Xing&display=swap" rel="stylesheet">
     
     <style>
+      /* 方案 A：直接將 CSS 整合在此，避免 index.css 404 錯誤 */
       html, body {
         overscroll-behavior: none;
         height: 100%; width: 100%;
         background: #2a0505; margin: 0; padding: 0;
+        overflow-x: hidden;
       }
       body {
         font-family: 'Noto Sans TC', sans-serif;
         background: radial-gradient(circle at center, #7f1d1d 0%, #2a0505 100%);
       }
       .font-calligraphy { font-family: 'Ma Shan Zheng', cursive; }
-      
-      /* 驗證遮罩層 */
+      .font-signature { font-family: 'Zhi Mang Xing', cursive; }
+
+      /* 驗證遮罩層：確保在最頂層 */
       #loading-overlay {
         position: fixed; top: 0; left: 0; width: 100%; height: 100%;
         background: radial-gradient(circle at center, #7f1d1d 0%, #2a0505 100%);
         z-index: 9999; display: flex; flex-direction: column;
         align-items: center; justify-content: center; color: #f59e0b;
+        text-align: center; padding: 20px;
       }
       
-      /* 背景粒子：確保在最底層，且不影響點擊 */
+      /* 背景粒子：確保在底層且不擋點擊 */
       #bg-particles {
         position: fixed; top: 0; left: 0; width: 100%; height: 100%;
         z-index: -1; pointer-events: none;
       }
 
-      /* React 容器層級 */
-      #root { position: relative; z-index: 10; }
+      /* React 渲染容器 */
+      #root { 
+        position: relative; 
+        z-index: 10; 
+        min-height: 100vh;
+      }
 
       .particle {
         position: absolute; pointer-events: none;
@@ -51,6 +59,12 @@
         0% { transform: translateY(110vh) translateX(0) scale(1); opacity: 0; }
         20% { opacity: 0.4; }
         100% { transform: translateY(-10vh) translateX(50px) scale(0.5); opacity: 0; }
+      }
+
+      /* 補償原本 index.css 可能有的 Canvas 樣式 */
+      canvas {
+        touch-action: none;
+        cursor: crosshair;
       }
     </style>
 
@@ -64,25 +78,23 @@
       }
     }
     </script>
-    
-    <link rel="stylesheet" href="index.css">
-</head>
+    </head>
   <body>
     <div id="loading-overlay">
         <div class="text-6xl mb-4 animate-bounce">🧧</div>
-        <div id="loading-text" class="text-xl font-bold font-calligraphy text-amber-400">正在領取開運資格...</div>
+        <div id="loading-text" class="text-xl font-bold font-calligraphy text-amber-400">正在確認開運資格...</div>
     </div>
 
     <div id="root"></div>
     <div id="bg-particles"></div>
 
     <script>
-      // === 自動填入您的配置 ===
+      // === 您的配置資訊 ===
       const LIFF_ID = '1569792743-bsbm1zLE'; 
       const GAS_URL = 'https://script.google.com/macros/s/AKfycbwsmCxklPsVoozRdPggUmh81IXatVZfWEG9dAD7iDkNwQHWJKoJe-idX4BLmF1_GLzZGg/exec'; 
 
       async function initApp() {
-        console.log("LIFF 啟動中...");
+        console.log("LIFF 開始初始化...");
         const loadingText = document.getElementById('loading-text');
         try {
           // 1. LIFF 初始化
@@ -95,7 +107,7 @@
           window.userUID = profile.userId;
           console.log("UID 取得成功: " + window.userUID);
 
-          // 2. 向 GAS 檢查重複參加
+          // 2. 向 GAS 檢查是否已玩過
           const response = await fetch(GAS_URL, {
             method: 'POST',
             body: JSON.stringify({ action: 'check', userId: window.userUID })
@@ -103,17 +115,17 @@
           const result = await response.json();
 
           if (result.canPlay) {
-            // 資格通過，移除遮罩讓 React 渲染
+            // 允許遊玩，隱藏遮罩
             document.getElementById('loading-overlay').style.display = 'none';
           } else {
-            loadingText.innerHTML = "❌ 您已參加過本活動<br><span style='font-size:16px; opacity:0.8'>每位會員限參與一次</span>";
+            loadingText.innerHTML = "❌ 您已參加過本活動<br><span style='font-size:16px; opacity:0.8'>每位會員限參加一次</span>";
           }
         } catch (err) {
-          console.error("初始化錯誤:", err);
-          // 容錯處理：如果 GAS 或 LIFF 暫時沒反應，2秒後讓它強制顯示遊戲，避免白屏
+          console.error("初始化失敗:", err);
+          // 容錯處理：如果連線太慢，3秒後強行解除遮罩讓遊戲跑起來
           setTimeout(() => {
             document.getElementById('loading-overlay').style.display = 'none';
-          }, 2000);
+          }, 3000);
         }
       }
 
@@ -132,7 +144,7 @@
 
       window.onload = initApp;
 
-      // 生成粒子
+      // 生成粒子背景
       const container = document.getElementById('bg-particles');
       for (let i = 0; i < 25; i++) {
         const p = document.createElement('div');
