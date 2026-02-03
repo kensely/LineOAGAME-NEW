@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>馬到成功：午馬開運刮</title>
+    <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Noto+Sans+TC:wght@400;700;900&family=Zhi+Mang+Xing&display=swap" rel="stylesheet">
+    <style>
+      html, body {
+        overscroll-behavior: none;
+        height: 100%;
+        width: 100%;
+        background: #2a0505;
+      }
+      body {
+        font-family: 'Noto Sans TC', sans-serif;
+        background: radial-gradient(circle at center, #7f1d1d 0%, #2a0505 100%);
+        margin: 0;
+        overflow-x: hidden;
+      }
+      .font-calligraphy { font-family: 'Ma Shan Zheng', cursive; }
+      .font-signature { font-family: 'Zhi Mang Xing', cursive; }
+      
+      /* 初始加載遮罩 */
+      #loading-overlay {
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: #2a0505; z-index: 9999; display: flex;
+        flex-direction: column; align-items: center; justify-content: center;
+        color: #f59e0b; font-size: 1.25rem;
+      }
+
+      .particle {
+        position: fixed; pointer-events: none;
+        background: linear-gradient(135deg, #f59e0b, transparent);
+        border-radius: 50%; z-index: 0; opacity: 0.3;
+        animation: float-up linear infinite;
+      }
+      @keyframes float-up {
+        0% { transform: translateY(110vh) translateX(0) scale(1); opacity: 0; }
+        20% { opacity: 0.4; }
+        80% { opacity: 0.4; }
+        100% { transform: translateY(-10vh) translateX(50px) scale(0.5); opacity: 0; }
+      }
+    </style>
+</head>
+  <body>
+    <div id="loading-overlay">
+        <div class="animate-bounce mb-4">🧧</div>
+        <div id="loading-text">身分驗證中...</div>
+    </div>
+
+    <div id="root">
+        </div>
+    
+    <div id="bg-particles"></div>
+
+    <script>
+      // === 配置資訊 ===
+      const LIFF_ID = '1569792743-bsbm1zLE'; // 請填入您的 LIFF ID
+      const GAS_URL = 'https://script.google.com/macros/s/AKfycbwsmCxklPsVoozRdPggUmh81IXatVZfWEG9dAD7iDkNwQHWJKoJe-idX4BLmF1_GLzZGg/exec'; // 請填入結尾為 /exec 的 GAS 網址
+      let userUID = "";
+
+      // 1. 初始化 LIFF
+      async function initLIFF() {
+        const loadingText = document.getElementById('loading-text');
+        try {
+          await liff.init({ liffId: LIFF_ID });
+          if (!liff.isLoggedIn()) {
+            liff.login();
+            return;
+          }
+          const profile = await liff.getProfile();
+          userUID = profile.userId;
+          checkParticipation(userUID);
+        } catch (err) {
+          loadingText.innerText = "驗證失敗，請重新開啟頁面";
+          console.error(err);
+        }
+      }
+
+      // 2. 檢查是否參加過 (向 GAS 查詢)
+      async function checkParticipation(uid) {
+        const loadingText = document.getElementById('loading-text');
+        try {
+          const response = await fetch(GAS_URL, {
+            method: 'POST',
+            body: JSON.stringify({ action: 'check', userId: uid })
+          });
+          const result = await response.json();
+
+          if (result.canPlay) {
+            // 允許遊玩，移除遮罩
+            document.getElementById('loading-overlay').style.display = 'none';
+          } else {
+            loadingText.innerHTML = "❌ 您已參加過本活動<br><small style='font-size:14px; opacity:0.7'>每位會員限參加一次</small>";
+          }
+        } catch (e) {
+          loadingText.innerText = "連線異常，請稍後再試";
+        }
+      }
+
+      // 3. 遊戲結束存檔 (當刮刮卡刮開後呼叫此函式)
+      // 您可以在您的 index.tsx 邏輯中，當刮除比例達成時執行：window.saveResult("獎項名稱");
+      window.saveResult = async function(prizeName) {
+        try {
+          await fetch(GAS_URL, {
+            method: 'POST',
+            body: JSON.stringify({
+              action: 'save',
+              userId: userUID,
+              prize: prizeName || "午馬開運獎"
+            })
+          });
+          console.log("紀錄存檔成功");
+        } catch (e) {
+          console.error("存檔失敗", e);
+        }
+      }
+
+      // 啟動流程
+      window.onload = initLIFF;
+
+      // 背景粒子特效
+      const container = document.getElementById('bg-particles');
+      for (let i = 0; i < 25; i++) {
+        const p = document.createElement('div');
+        p.className = 'particle';
+        const size = Math.random() * 5 + 2 + 'px';
+        p.style.width = size;
+        p.style.height = size;
+        p.style.left = Math.random() * 100 + 'vw';
+        p.style.animationDuration = Math.random() * 15 + 10 + 's';
+        p.style.animationDelay = Math.random() * 5 + 's';
+        container.appendChild(p);
+      }
+    </script>
+
+    <script type="module" src="index.tsx"></script>
+  </body>
+</html>
